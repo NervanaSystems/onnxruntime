@@ -528,7 +528,7 @@ private:
                 int32_t sum = 0;
 
                 for (size_t k = 0; k < K; k++) {
-                    sum += ((*b + offb) * (*a + offa));
+                    sum += ((int32_t(*b) - offb) * (int32_t(*a) - offa));
                     b += ldb;
                     a += 1;
                 }
@@ -1995,7 +1995,7 @@ main(
 
         printf("Done.\n");
 #if !defined(MLAS_NO_ONNXRUNTIME_THREADPOOL)
-        threadpool = new onnxruntime::concurrency::ThreadPool("test", 2);
+        if(threadpool != nullptr) threadpool = new onnxruntime::concurrency::ThreadPool("test", 2);
 #else
         break;
 #endif
