@@ -46,9 +46,6 @@
 #include "core/optimizer/transformer_memcpy.h"
 #include "core/providers/cpu/controlflow/utils.h"
 #include "core/providers/cpu/cpu_execution_provider.h"
-#ifdef USE_CUDA
-#include "core/providers/cuda/gpu_data_transfer.h"
-#endif
 #include "core/session/IOBinding.h"
 #include "core/session/custom_ops.h"
 #include "core/util/protobuf_parsing_utils.h"
@@ -146,6 +143,13 @@ common::Status InferenceSession::RegisterExecutionProvider(std::unique_ptr<IExec
 
   std::string provider_type = p_exec_provider->Type();
   VLOGS(*session_logger_, 1) << "Adding execution provider of type: " << provider_type;
+  auto p_data_xfr = p_exec_provider->GetDataTransfer();
+  if (p_data_xfr) {
+    auto st = data_transfer_mgr_.RegisterDataTransfer(std::move(p_data_xfr));
+    if (!st.IsOK()) {
+      return st;
+    }
+  }
   execution_providers_.Add(provider_type, std::move(p_exec_provider));
 
   return Status::OK();
@@ -482,19 +486,9 @@ common::Status InferenceSession::Initialize() {
     if (!execution_providers_.Get(onnxruntime::kCpuExecutionProvider)) {
       LOGS(*session_logger_, INFO) << "Adding default CPU execution provider.";
       CPUExecutionProviderInfo epi{session_options_.enable_cpu_mem_arena};
-      ORT_RETURN_IF_ERROR(execution_providers_.Add(onnxruntime::kCpuExecutionProvider,
-                                                   std::make_unique<CPUExecutionProvider>(epi)));
+      auto p_cpu_exec_provider = std::make_unique<CPUExecutionProvider>(epi);
+      ORT_RETURN_IF_ERROR(RegisterExecutionProvider(std::move(p_cpu_exec_provider)));
     }
-
-    // Register data transfer methods.
-    data_transfer_mgr_.RegisterDataTransfer(std::make_unique<CPUDataTransfer>());
-#ifdef USE_CUDA
-    // TODO: this should be refactored later by exposing separate API to allow users to register different data transfers for different devices.
-    bool is_nvidia_gpu_used = (nullptr != execution_providers_.Get(kCudaExecutionProvider)) || (nullptr != execution_providers_.Get(kTensorrtExecutionProvider));
-    if (is_nvidia_gpu_used) {
-      data_transfer_mgr_.RegisterDataTransfer(std::make_unique<GPUDataTransfer>());
-    }
-#endif
 
     if (!session_options_.enable_sequential_execution &&
         execution_providers_.Get(onnxruntime::kCudaExecutionProvider)) {
@@ -571,6 +565,14 @@ common::Status InferenceSession::Initialize() {
 
 int InferenceSession::GetCurrentNumRuns() const {
   return current_num_runs_.load();
+}
+
+const std::vector<std::string>& InferenceSession::GetRegisteredProviderTypes() const {
+  return execution_providers_.GetIds();
+}
+
+const SessionOptions& InferenceSession::GetSessionOptions() const {
+  return session_options_;
 }
 
 common::Status InferenceSession::CheckShapes(const std::string& input_name,
@@ -838,7 +840,8 @@ common::Status InferenceSession::NewIOBinding(std::unique_ptr<IOBinding>* io_bin
 common::Status InferenceSession::Run(const RunOptions& run_options, IOBinding& io_binding) {
   // TODO should Run() call io_binding.SynchronizeInputs() or should it let the callers do it?
   // io_binding.SynchronizeInputs();
-  return Run(run_options, io_binding.feed_names_, io_binding.feeds_, io_binding.output_names_, &io_binding.outputs_);
+  return Run(run_options, io_binding.GetInputNames(), io_binding.GetInputs(),
+             io_binding.GetOutputNames(), &io_binding.GetOutputs());
 }
 
 common::Status InferenceSession::Run(IOBinding& io_binding) {
