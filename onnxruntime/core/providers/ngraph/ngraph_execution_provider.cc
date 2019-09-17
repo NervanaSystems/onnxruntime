@@ -523,6 +523,8 @@ static ONNX_NAMESPACE::ModelProto GetModelProtoFromFusedNode(const onnxruntime::
 
   *(model_proto.mutable_graph()) = node_subgraph.ToGraphProto();
 
+  model_proto.clear_opset_import();
+
   auto opset = model_proto.add_opset_import();
   opset->set_domain(kOnnxDomain);
   opset->set_version(node_subgraph.DomainToVersionMap().at(kOnnxDomain));
