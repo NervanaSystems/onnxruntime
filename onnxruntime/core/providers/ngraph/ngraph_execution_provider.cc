@@ -108,12 +108,6 @@ static bool IsUnsupportedOpMode(const Node* node, const onnxruntime::GraphViewer
     //TopK opset 10 is currently not supported.
     //K as input is currently not suppported.
     return node->InputDefs().size() > 1;
-  } else if (optype == "LSTM") {
-    const auto& attributes = node->GetAttributes();
-    const auto direction_attr = attributes.find("direction");
-    if (direction_attr != attributes.end()) {
-      return direction_attr->second.s() == "reverse";
-    }
   } else if (optype == "MatMul") {
     //All matmuls except float have computation missmatch
     const bool A_is_float = node->InputDefs()[0]->Type()->find("float") != std::string::npos;
@@ -156,17 +150,6 @@ static bool IsUnsupportedOpMode(const Node* node, const onnxruntime::GraphViewer
     // default value of ceil_mode (0) is supported.
     if (ceil_attr != attributes.end() && ceil_attr->second.i() != 0) {
       return true;
-    }
-  } else if (optype == "Split") {
-    const auto& attributes = node->GetAttributes();
-    const auto split_attr = attributes.find("split");
-
-    if (split_attr != attributes.end()) {
-      // split implementation contains a bug that doesn't throw for incorrect split values
-      // disabling temporarily until it's fixed in the next release of nGraph
-      const auto splits = split_attr->second.ints();
-      return std::any_of(std::begin(splits), std::end(splits),
-        [](const auto split) { return split <= 0; });
     }
   } else if (optype == "QLinearMatMul") {
     const auto& a_zero_point = node->InputDefs()[2];
@@ -284,7 +267,6 @@ static bool IsNodeSupported(const std::map<std::string, std::set<std::string>>& 
 }
 
 static void AppendClusterToSubGraph(const std::vector<NodeIndex>& nodes,
-                                    const onnxruntime::GraphViewer& graph_viewer,
                                     const std::vector<std::string>& inputs,
                                     const std::vector<std::string>& outputs,
                                     std::vector<std::unique_ptr<ComputeCapability>>& result) {
@@ -297,13 +279,6 @@ static void AppendClusterToSubGraph(const std::vector<NodeIndex>& nodes,
   meta_def->status = ONNX_NAMESPACE::EXPERIMENTAL;
   meta_def->inputs = inputs;
   meta_def->outputs = outputs;
-
-  //store the name of the graph this node belongs to - used to retrieve graph initializers from the cache
-  ONNX_NAMESPACE::AttributeProto graph_name;
-  graph_name.set_name("graph_name");
-  graph_name.set_type(ONNX_NAMESPACE::AttributeProto_AttributeType::AttributeProto_AttributeType_STRING);
-  graph_name.set_s(graph_viewer.Name());
-  meta_def->attributes["graph_name"] = graph_name;
 
   std::unique_ptr<IndexedSubGraph> sub_graph = std::make_unique<IndexedSubGraph>();
   sub_graph->nodes = nodes;
@@ -320,7 +295,7 @@ static std::map<std::string, std::set<std::string>> GetNgSupportedOps(const int 
   std::map<std::string, std::set<std::string>> ng_supported_ops;
   ng_supported_ops.emplace(kOnnxDomain, ngraph::onnx_import::get_supported_operators(onnx_opset, kOnnxDomain));
 
-  const std::set<std::string> ng_disabled_ops = {"LSTM", "Gather"};  //Place-holder for ops not supported.
+  const std::set<std::string> ng_disabled_ops = {"LSTM"};  //Place-holder for ops not supported.
 
   for (const auto& disabled_op : ng_disabled_ops) {
     ng_supported_ops.at(kOnnxDomain).erase(disabled_op);
@@ -517,7 +492,7 @@ NGRAPHExecutionProvider::GetCapability(const onnxruntime::GraphViewer& graph_vie
                   [&outputs](const NodeArg* node_arg) { outputs.push_back(node_arg->Name()); });
 
     // Create and add this graph to result.
-    AppendClusterToSubGraph(graph_viewer.GetNodesInTopologicalOrder(), graph_viewer, inputs, outputs, result);
+    AppendClusterToSubGraph(graph_viewer.GetNodesInTopologicalOrder(), inputs, outputs, result);
 
   } else {  // unsupported_nodes_idx.empty()
     const auto ng_clusters = GetPartitionedClusters(graph_viewer.GetNodesInTopologicalOrder(), unsupported_nodes);
@@ -527,7 +502,7 @@ NGRAPHExecutionProvider::GetCapability(const onnxruntime::GraphViewer& graph_vie
       GetInputsOutputsOfCluster(graph_viewer, this_cluster, ng_required_initializers, cluster_inputs, cluster_outputs);
 
       if (!cluster_inputs.empty()) {
-        AppendClusterToSubGraph(this_cluster, graph_viewer, cluster_inputs, cluster_outputs, result);
+        AppendClusterToSubGraph(this_cluster, cluster_inputs, cluster_outputs, result);
       }
     }
   }
@@ -547,6 +522,8 @@ static ONNX_NAMESPACE::ModelProto GetModelProtoFromFusedNode(const onnxruntime::
   model_proto.set_ir_version(ONNX_NAMESPACE::Version::IR_VERSION);
 
   *(model_proto.mutable_graph()) = node_subgraph.ToGraphProto();
+
+  model_proto.clear_opset_import();
 
   auto opset = model_proto.add_opset_import();
   opset->set_domain(kOnnxDomain);
