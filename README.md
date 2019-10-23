@@ -39,7 +39,7 @@
 ***
 # Key Features
 ## Run any ONNX model
-ONNX Runtime provides comprehensive support of the ONNX spec and can be used to run all models based on ONNX v1.2.1 and higher. See version compatibility details [here](./docs/Versioning.md).
+ONNX Runtime provides comprehensive support of the ONNX spec and can be used to run all models based on ONNX v1.2.1 and higher. See version compatibility detail [here](./docs/Versioning.md).
 
 **Traditional ML support**
 
