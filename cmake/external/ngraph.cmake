@@ -11,7 +11,7 @@ set(ngraph_SRC ${CMAKE_CURRENT_BINARY_DIR}/ngraph/src/project_ngraph)
 set(prebuilt_ONNX_SOURCE_DIR "${PROJECT_SOURCE_DIR}/external/onnx")
 set(prebuilt_ONNX_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}")
 set(ngraph_URL "https://github.com/NervanaSystems/ngraph.git")
-set(ngraph_TAG "1ad0d7232e7cac058a6f49cc4e400bd044cc4985")
+set(ngraph_TAG "27ce7250837daf97676642d65525639366b61469")
 
 # Libraries for python package.
 if (WIN32)
