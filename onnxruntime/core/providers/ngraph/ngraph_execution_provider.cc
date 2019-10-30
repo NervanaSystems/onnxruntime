@@ -105,9 +105,11 @@ static bool IsUnsupportedOpMode(const Node* node, const onnxruntime::GraphViewer
     const auto& depth_arg = node->InputDefs()[1];
     return initializers.find(depth_arg->Name()) == initializers.end();
   } else if (optype == "TopK") {
-    //TopK opset 10 is currently not supported.
-    //K as input is currently not suppported.
-    return node->InputDefs().size() > 1;
+    // TopK is only supported when the K input is constant
+    if (node->InputDefs().size() > 1) {
+      const auto& k_input_name = node->InputDefs()[1]->Name();
+      return !graph_viewer.IsConstantInitializer(k_input_name, true);
+    }
   } else if (optype == "MatMul") {
     //All matmuls except float have computation missmatch
     const bool A_is_float = node->InputDefs()[0]->Type()->find("float") != std::string::npos;
