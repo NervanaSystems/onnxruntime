@@ -58,12 +58,13 @@ Currently ONNX Runtime supports the following accelerators:
 
 * NVIDIA CUDA
 * Intel MKL-ML
-* [Intel MKL-DNN](./docs/execution_providers/MKL-DNN-ExecutionProvider.md) - [subgraph optimization](./docs/execution_providers/MKL-DNN-Subgraphs.md)
+* [Intel DNNL](./docs/execution_providers/MKL-DNN-ExecutionProvider.md) - [subgraph optimization](./docs/execution_providers/MKL-DNN-Subgraphs.md)
 * [Intel nGraph](./docs/execution_providers/nGraph-ExecutionProvider.md)
 * [NVIDIA TensorRT](./docs/execution_providers/TensorRT-ExecutionProvider.md)
 * [Intel OpenVINO](./docs/execution_providers/OpenVINO-ExecutionProvider.md)
 * [Nuphar Model Compiler](./docs/execution_providers/Nuphar-ExecutionProvider.md)
 * [DirectML](./docs/execution_providers/DirectML-ExecutionProvider.md)
+* [ACL](./docs/execution_providers/ACL-ExecutionProvider.md) (in preview, for ARM Compute Library)
 
 Not all variations are supported in the [official release builds](#apis-and-official-builds), but can be built from source following [these instructions](./BUILD.md).
 

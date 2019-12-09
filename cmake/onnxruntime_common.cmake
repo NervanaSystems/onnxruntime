@@ -16,6 +16,7 @@ set(onnxruntime_common_src_patterns
     "${ONNXRUNTIME_ROOT}/core/platform/env.cc"
     "${ONNXRUNTIME_ROOT}/core/platform/env_time.h"
     "${ONNXRUNTIME_ROOT}/core/platform/env_time.cc"
+    "${ONNXRUNTIME_ROOT}/core/platform/scoped_resource.h"
     "${ONNXRUNTIME_ROOT}/core/platform/telemetry.h"
     "${ONNXRUNTIME_ROOT}/core/platform/telemetry.cc"
 )
@@ -51,6 +52,10 @@ source_group(TREE ${REPO_ROOT} FILES ${onnxruntime_common_src})
 
 add_library(onnxruntime_common ${onnxruntime_common_src})
 
+if (onnxruntime_USE_TELEMETRY)
+  set_target_properties(onnxruntime_common PROPERTIES COMPILE_FLAGS "/FI${ONNXRUNTIME_INCLUDE_DIR}/core/platform/windows/TraceLoggingConfigPrivate.h")
+endif()
+
 if (onnxruntime_USE_MIMALLOC)
     if(onnxruntime_USE_CUDA OR onnxruntime_USE_OPENVINO) 
         message(WARNING "Ignoring directive to use mimalloc on unimplemented targets")
@@ -69,7 +74,7 @@ onnxruntime_add_include_to_target(onnxruntime_common date_interface)
 target_include_directories(onnxruntime_common PRIVATE ${CMAKE_CURRENT_BINARY_DIR} ${ONNXRUNTIME_ROOT}
         PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/external/nsync/public")
 if(onnxruntime_USE_NSYNC)
-    target_compile_definitions(onnxruntime_common PUBLIC USE_NSYNC)
+    target_compile_definitions(onnxruntime_common PUBLIC USE_NSYNC NSYNC_ATOMIC_CPP11)
 endif()
 
 target_include_directories(onnxruntime_common PUBLIC ${eigen_INCLUDE_DIRS})
